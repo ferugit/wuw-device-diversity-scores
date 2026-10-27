@@ -1,0 +1,32 @@
+id	system
+BL	Baseline
+TR	SSL (w2v-BERT 2.0)
+DA-1	DIR (p=0.4)
+DA-2	DIR (p=0.2)
+DA-3	FilterAugment ±6 dB
+DA-4	FilterAugment ±3 dB
+DA-5	FreqMixStyle (label-agnostic)
+DA-6	FreqMixStyle (label-wise)
+DA-7	FreqMasking (w=120 ms)
+DA-8	FreqMasking (w=64 ms)
+DA-9	FreqMasking (w=32 ms)
+DA-10	FreqMasking (w=16 ms)
+DA-11	TimeMasking (w=64 ms)
+DA-12	TimeMasking (w=32 ms)
+DA-13	MixUp
+KD-1	KD (δ=0.2, τ=2)
+KD-2	KD (δ=0.2, τ=4)
+KD-3	KD (δ=0.2, τ=5)
+KD-4	KD (δ=0.5, τ=5)
+KD-5	KD (δ=0.0, τ=5)
+CMB-1	DIR + FreqMixStyle (label-wise)
+CMB-2	DIR + FreqMasking
+CMB-3	DIR + MixUp
+CMB-4	FreqMixStyle (label-wise) + FreqMasking
+CMB-5	FreqMixStyle (label-wise) + MixUp
+CMB-6	FreqMasking + MixUp
+CMB-7	KD + DIR
+CMB-8	KD + FreqMixStyle (label-wise)
+CMB-9	KD + FreqMasking
+CMB-10	KD + MixUp
+CMB-11	KD + DIR + FreqMixStyle (label-wise)
