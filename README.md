@@ -60,9 +60,9 @@ identifiers are assigned in the order of the original ones, so the bootstrap res
 therefore every reported number, are reproduced exactly.
 
 **Parallel TAU** is derived from the public TAU Urban Acoustic Scenes 2020 Mobile data
-(Heittola et al., DCASE 2020), using the clips recorded in parallel on devices a, b and c;
-sample identifiers are kept as in the original dataset. Only identifiers and model scores are
-included, not the audio.
+(Heittola et al., DCASE 2020; <https://doi.org/10.5281/zenodo.3819968>), using the clips
+recorded in parallel on devices a, b and c; sample identifiers are kept as in the original
+dataset. Only identifiers and model scores are included, not the audio.
 
 ## Reproducing the results
 
@@ -108,6 +108,8 @@ Wasserstein metrics are on the probability scale; the paper reports them in unit
 - **Parallel TAU scores** (`scores/parallel_tau/`) and the Parallel TAU metrics in `results/`
   (columns containing `_TAU`): these are results obtained using the TAU Urban Acoustic Scenes
   2020 Mobile dataset and are distributed under its terms, for experimental and
-  non-commercial purposes only; see [`scores/parallel_tau/LICENSE`](scores/parallel_tau/LICENSE).
+  non-commercial purposes only. The dataset license is available with the dataset at
+  <https://doi.org/10.5281/zenodo.3819968> and copied in
+  [`scores/parallel_tau/LICENSE`](scores/parallel_tau/LICENSE).
 
 © 2026 Fernando López Gavilánez.

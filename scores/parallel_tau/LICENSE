@@ -2,8 +2,11 @@ The files in this folder contain sample and clip identifiers of the TAU Urban Ac
 Scenes 2020 Mobile, Development dataset (https://doi.org/10.5281/zenodo.3819968) and the
 scores of our models on those samples. They are results obtained using that dataset and are
 NOT covered by the license of the rest of this repository. They may only be used for
-experimental and non-commercial purposes, under the terms of the dataset license, which is
-reproduced below.
+experimental and non-commercial purposes, under the terms of the dataset license.
+
+The dataset license is available with the dataset at https://doi.org/10.5281/zenodo.3819968.
+The text below is copied verbatim from the LICENSE file of its documentation package
+(TAU-urban-acoustic-scenes-2020-mobile-development.doc.zip).
 
 Source of the dataset: Audio Research Group, Tampere University.
 
