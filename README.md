@@ -34,7 +34,7 @@ statistics can be reproduced.
 experiments.tsv                       system IDs used in the paper (BL, TR, DA-1 … CMB-11)
 scores/wuw_device_diversity/<ID>.tsv  one file per system: 589 test samples
 scores/parallel_tau/<ID>.tsv          one file per system: 1,404 test samples
-evaluate.py                           metrics, bootstrap CIs and paired tests vs BL
+evaluate.py                           metrics, bootstrap CIs, paired tests vs BL, threshold optimisation
 results/                              output of evaluate.py (as reported in the paper)
 results/sensitivity/                  same, excluding the two devices with 9 samples
 requirements.txt
@@ -88,6 +88,10 @@ procedure. In short:
 - **Comparisons:** all systems share the same resamples, so each system's difference to BL is
   paired. `significance.csv` gives the difference, its 95% CI and a two-sided p-value;
   p < 0.05 exactly when the CI excludes 0. No correction for multiple comparisons is applied.
+- **Threshold optimisation** (BL and DA-2): leave-one-device-out search over thresholds
+  0.01–0.99; the final threshold is the median of the per-round picks and is applied to all
+  devices. The procedure is re-run on every resample, and the final threshold is compared with
+  0.5 within each system (paired).
 
 ## Output columns
 
@@ -97,6 +101,11 @@ resamples).
 
 `significance.csv`: for each system except BL and each metric: `<M>_diff` (system − BL),
 `<M>_lo`, `<M>_hi` (95% CI of the difference), `<M>_p`, `<M>_sig` (p < 0.05).
+
+`threshold_optimization.csv`: for BL and DA-2: `Threshold` (final threshold) and, for `<M>` in
+`BA` and `BF1` (mean per-device WuW F1-score): `<M>_default`, `<M>_opt` (at 0.5 and at the
+final threshold) with `_lo`/`_hi` CIs; `<M>_diff` (final − default) with `<M>_diff_lo`,
+`<M>_diff_hi`, `<M>_p`, `<M>_sig`.
 
 Wasserstein metrics are on the probability scale; the paper reports them in units of 10⁻².
 

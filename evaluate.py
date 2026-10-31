@@ -33,6 +33,12 @@ ci_results.csv     per system and metric: point estimate, CI, whether the CI
                    contains the point estimate, mean over resamples
 significance.csv   per system and metric: difference to BL, its CI, p-value,
                    significant (p < α)
+threshold_optimization.csv
+                   BL and DA-2: leave-one-device-out threshold optimisation,
+                   re-run on every WuW Device Diversity resample. Final
+                   threshold; BA and BF1 (mean per-device WuW F1) at 0.5 and at
+                   the final threshold, with CIs; optimised − default, its CI,
+                   p-value, significant (paired within each system)
 
 Usage
 -----
@@ -62,6 +68,10 @@ DD_METRICS = ["F1", "BA", "WDM_DD", "WDS_DD"]
 TAU_METRICS = ["WDM_TAU", "WDS_TAU"]
 METRICS = DD_METRICS + TAU_METRICS
 
+THRESHOLD_SYSTEMS = ["BL", "DA-2"]
+THRESHOLD_GRID = np.round(np.arange(0.01, 1.0, 0.01), 2)
+THRESHOLD_METRICS = ["BA", "BF1"]
+
 
 def f1_wuw(is_wuw: np.ndarray, pred_wuw: np.ndarray) -> float:
     tp = np.sum(is_wuw & pred_wuw)
@@ -80,6 +90,34 @@ def wdm_wds(scores: np.ndarray, devices: np.ndarray) -> tuple[float, float]:
     groups = {d: scores[devices == d] for d in np.unique(devices)}
     pw = [wasserstein_distance(groups[a], groups[b]) for a, b in combinations(sorted(groups), 2)]
     return float(np.mean(pw)), float(np.std(pw))
+
+
+def _per_device(is_wuw: np.ndarray, pred: np.ndarray, devices: np.ndarray,
+                devs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Per-device accuracy and WuW F1 for each column of pred (n, T). Both (K, T)."""
+    acc, f1 = [], []
+    for d in devs:
+        w, p = is_wuw[devices == d, None], pred[devices == d]
+        tp, fp, fn = (p & w).sum(0), (p & ~w).sum(0), (~p & w).sum(0)
+        denom = 2 * tp + fp + fn
+        acc.append((p == w).mean(0))
+        f1.append(np.divide(2 * tp, denom, out=np.zeros(len(denom)), where=denom > 0))
+    return np.array(acc), np.array(f1)
+
+
+def threshold_optimization(is_wuw: np.ndarray, scores: np.ndarray,
+                           devices: np.ndarray) -> tuple[float, ...]:
+    """Each round picks the grid threshold maximising BA on the other K−1
+    devices; the final threshold is the median of the K picks. Returns
+    (threshold, BA and BF1 at 0.5, BA and BF1 at the final threshold), with
+    every device evaluated at the final threshold."""
+    devs = np.unique(devices)
+    acc, _ = _per_device(is_wuw, scores[:, None] >= THRESHOLD_GRID, devices, devs)
+    picks = [THRESHOLD_GRID[np.argmax(np.delete(acc, k, axis=0).mean(0))] for k in range(len(devs))]
+    thr = float(np.median(picks))
+    acc, f1 = _per_device(is_wuw, np.stack([scores >= 0.5, scores >= thr], axis=1), devices, devs)
+    (ba0, ba1), (bf0, bf1) = acc.mean(0), f1.mean(0)
+    return thr, ba0, bf0, ba1, bf1
 
 
 def load(test_set: str, system: str, exclude: tuple[str, ...] = ()) -> pd.DataFrame:
@@ -129,6 +167,18 @@ def bootstrap_system(args: tuple) -> dict:
     return out
 
 
+def bootstrap_threshold(args: tuple) -> dict:
+    system, dd_draws, exclude = args
+    df = load("wuw_device_diversity", system, exclude)
+    _, rows = cluster_rows(df["speaker_id"])
+    w = df["is_wuw"].to_numpy().astype(bool)
+    sc, dv = df["score_wuw"].to_numpy(), df["device"].to_numpy()
+    return {"system": system,
+            "point": np.array(threshold_optimization(w, sc, dv)),
+            "boot": np.array([threshold_optimization(w[i], sc[i], dv[i]) for i in
+                              (np.concatenate([rows[c] for c in d]) for d in dd_draws)])}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--bootstraps", type=int, default=10000, help="Bootstrap resamples (default: 10000)")
@@ -151,6 +201,7 @@ def main() -> None:
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
         res = {r["system"]: r for r in ex.map(bootstrap_system,
                                               [(s, dd_draws, tau_draws, exclude) for s in SYSTEMS])}
+        thr_res = list(ex.map(bootstrap_threshold, [(s, dd_draws, exclude) for s in THRESHOLD_SYSTEMS]))
 
     def point_and_boot(r: dict) -> tuple[dict, dict]:
         pts = dict(zip(DD_METRICS, r["dd_point"])) | dict(zip(TAU_METRICS, r["tau_point"]))
@@ -180,6 +231,23 @@ def main() -> None:
     pd.DataFrame(ci_rows).to_csv(args.output_dir / "ci_results.csv", index=False)
     pd.DataFrame(sig_rows).to_csv(args.output_dir / "significance.csv", index=False)
     print(f"Saved: {args.output_dir / 'ci_results.csv'}\nSaved: {args.output_dir / 'significance.csv'}")
+
+    thr_rows = []
+    for r in thr_res:
+        pt, bt = r["point"], r["boot"]
+        row = {"Label": r["system"], "Threshold": pt[0]}
+        for j, m in enumerate(THRESHOLD_METRICS):
+            for k, op in ((1 + j, "default"), (3 + j, "opt")):
+                lo, hi = np.percentile(bt[:, k], [A / 2, 100 - A / 2])
+                row |= {f"{m}_{op}": pt[k], f"{m}_{op}_lo": lo, f"{m}_{op}_hi": hi}
+            delta = bt[:, 3 + j] - bt[:, 1 + j]
+            dlo, dhi = np.percentile(delta, [A / 2, 100 - A / 2])
+            p = two_sided_p(delta)
+            row |= {f"{m}_diff": pt[3 + j] - pt[1 + j], f"{m}_diff_lo": dlo, f"{m}_diff_hi": dhi,
+                    f"{m}_p": p, f"{m}_sig": p < A / 100}
+        thr_rows.append(row)
+    pd.DataFrame(thr_rows).to_csv(args.output_dir / "threshold_optimization.csv", index=False)
+    print(f"Saved: {args.output_dir / 'threshold_optimization.csv'}")
 
 
 if __name__ == "__main__":
